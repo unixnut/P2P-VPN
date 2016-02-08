@@ -203,6 +203,15 @@ nsComment			= "OpenSSL Generated Server Certificate"
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer:always
 
+[ multi_purpose ]
+
+# Alastair Irvine ADDED -- Make a cert with nsCertType set appropriately
+basicConstraints=CA:FALSE
+nsCertType			= client, server
+nsComment			= "OpenSSL Generated Server Certificate"
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer:always
+
 [ v3_req ]
 
 # Extensions to add to a certificate request

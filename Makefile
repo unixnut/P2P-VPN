@@ -55,7 +55,7 @@ $(KEY_DIR)/$(SERVER_ID).crt: $(KEY_DIR)/$(SERVER_ID).csr $(KEY_DIR)/ca.crt $(KEY
 
 $(KEY_DIR)/$(SERVER_ID).key $(KEY_DIR)/$(SERVER_ID).csr: $(KEY_DIR)/ca.key
 	CN="$(SERVER_ID)" openssl req -config $(KEY_CONFIG) $(REQ_ARGS) \
-	  -new -extensions server -out $(KEY_DIR)/$(SERVER_ID).csr \
+	  -new -extensions multi_purpose -out $(KEY_DIR)/$(SERVER_ID).csr \
 	  -newkey rsa:$(KEY_SIZE) -keyout $(KEY_DIR)/$(SERVER_ID).key -nodes
 	chmod 0600 $(KEY_DIR)/$(SERVER_ID).key
 
