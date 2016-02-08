@@ -1,0 +1,252 @@
+#! /bin/bash
+# make-pair (BASH script) -- create a pair of certs for communication between two servers
+
+# Each named server has one subnet and n tuples consisting of:
+#   (remote_fqdn remote_subnet lport rport)
+# ...all elements of which differ from the corresponding elements in all other
+# tuples for the server in question.
+# The FQDNs and subnets are cached but the ports are the same in each tuple,
+# and are just 11000 + P2P_PAIR_ID.
+
+#
+# Version:   
+# Copyright: (c)2016 Alastair Irvine <alastair@plug.org.au>
+# Keywords:  
+# Notice:    
+# Licence:   This file is released under the GNU General Public License
+#
+# Description:
+#   
+#
+# Usage: 
+# Options:
+#   
+#
+# Licence details:
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or (at
+#     your option) any later version.
+#
+#     See http://www.gnu.org/licenses/gpl-2.0.html for more information.
+#
+#     You can find the complete text of the GPLv2 in the file
+#     /usr/share/common-licenses/GPL-2 on Debian systems.
+#     Or see the file COPYING in the same directory as this program.
+#
+#
+# TO-DO:
+
+
+self=`basename "$0"`
+allowed_options=vh
+allowed_long_options=help,verbose
+
+P2P_PAIR_ID_FILE=$(dirname "$0")/p2p_pair_id.txt
+CACHE_FILE=$(dirname "$0")/cache.txt
+
+
+# *** FUNCTIONS ***
+show_help()
+{
+  cat << EOT_HELP
+EOT_HELP
+}
+
+
+load_caches()
+{
+  local name fqdn subnet
+
+  if [ -f $CACHE_FILE ] ; then
+    while read name fqdn subnet
+    do
+      fqdn_cache[$name]=$fqdn
+      subnet_cache[$name]=$subnet
+    done < $CACHE_FILE
+  fi
+}
+
+
+save_caches()
+{
+  local host
+
+  for host in "${new_hosts[@]}" ; do
+    echo $host ${fqdn_cache[$host]} ${subnet_cache[$host]} >> $CACHE_FILE
+  done
+}
+
+
+# Reads a subnet from the cache or requests it from the user.
+# In either case it's echoed to stdout for the caller to capture.
+# Returns 0 for a cache miss (means caller should add it to cache) and 1 for a cache hit.
+fetch_subnet()
+{
+  local subnet
+
+  if [ -n "${subnet_cache[$1]}" ] ; then
+    echo "${subnet_cache[$1]}"
+    echo "Loaded subnet from cache: ${subnet_cache[$1]}" >&2
+    return 1
+  else
+    echo -n "Enter this server's subnet: " >&2
+    read subnet
+    echo "$subnet"
+    return 0
+  fi
+}
+
+
+insert_subnet_cache()
+{
+  subnet_cache[$1]=$2
+}
+
+
+# Reads a fqdn from the cache or requests it from the user.
+# In either case it's echoed to stdout for the caller to capture.
+# Returns 0 for a cache miss (means caller should add it to cache) and 1 for a cache hit.
+fetch_fqdn()
+{
+  local fqdn
+
+  if [ -n "${fqdn_cache[$1]}" ] ; then
+    echo "${fqdn_cache[$1]}"
+    echo "Loaded fqdn from cache: ${fqdn_cache[$1]}" >&2
+    return 1
+  else
+    echo -n "Enter this server's fqdn: " >&2
+    read fqdn
+    echo "$fqdn"
+    return 0
+  fi
+}
+
+
+insert_fqdn_cache()
+{
+  fqdn_cache[$1]=$2
+  new_hosts[${#new_hosts[@]}]=$1
+}
+
+
+# *** MAINLINE ***
+# == command-line parsing ==
+# -- defaults --
+debug=0
+verbose=0
+
+# -- option handling --
+set -e
+orthogonal_opts=$(getopt --shell=sh --name=$self \
+  --options=+$allowed_options --longoptions=$allowed_long_options -- "$@")
+eval set -- "$orthogonal_opts"
+set +e      # getopt would have already reported the error
+
+while [ x"$1" != x-- ] ; do
+  case "$1" in
+    -d) debug=$((debug + 1)) ;;
+    -v|--verbose) verbose=$((verbose + 1)) ;;
+    -h|--help) show_help ; exit ;;
+    -1) echo "${self}: Warning: Blah blah blah feature unsupported" >&2 ;;
+  esac
+  shift     # get rid of option (or if the inner shift already did, get rid of arg)
+done
+shift       # get rid of the "--"
+
+# -- argument checking --
+## if [ $# != 2 -a $# != 3 ] ; then
+##   ## echo "Usage: $self ..." >&2
+##   show_help >&2
+##   exit 1
+## fi
+
+# -- argument handling --
+
+
+# == sanity checking ==
+if [ -z "$KEY_ORG" ] ; then
+  echo "$self: FATAL ERROR: \$KEY_ORG not defined.  Edit and source 'vars'." >&2
+fi
+
+
+# == preparation ==
+set -e
+
+declare -A fqdn_cache
+declare -A subnet_cache
+
+declare -a new_hosts
+
+load_caches
+
+mkdir -p servers
+
+if [ -f "$P2P_PAIR_ID_FILE" ] ; then
+  p2p_pair_id=$(cat "$P2P_PAIR_ID_FILE")
+else
+  p2p_pair_id=1
+fi
+echo $((p2p_pair_id + 1 )) > "$P2P_PAIR_ID_FILE"
+
+
+# == processing ==
+echo -n "Enter the short name of the first server: "
+read local_server_name
+if local_server_subnet=$(fetch_subnet $local_server_name)
+then
+  insert_subnet_cache $local_server_name $local_server_subnet
+fi
+if local_server_fqdn=$(fetch_fqdn $local_server_name)
+then
+  insert_fqdn_cache $local_server_name $local_server_fqdn
+fi
+echo
+
+echo -n "Enter the short name of the second server: "
+read remote_server_name
+if remote_server_subnet=$(fetch_subnet $remote_server_name)
+then
+  insert_subnet_cache $remote_server_name $remote_server_subnet
+fi
+if remote_server_fqdn=$(fetch_fqdn $remote_server_name)
+then
+  insert_fqdn_cache $remote_server_name $remote_server_fqdn
+fi
+echo
+
+echo Generating OpenVPN config files for pair $p2p_pair_id
+for server_num in 1 2 ; do
+  ## mkdir servers/server_${p2p_pair_id}_$server_num
+  sed -e "s/<P2P_PAIR_ID>/$p2p_pair_id/g" \
+      -e "s/<THIS_ID>/$server_num/" \
+      -e "s/<NAME1>/$local_server_name/" \
+      -e "s/<SERVER1>/$local_server_fqdn/" \
+      -e "s/<SERVER1_SUBNET>/$local_server_subnet 255.255.255.0/" \
+      -e "s/<OTHER_ID>/$((3 - server_num))/" \
+      -e "s/<NAME2>/$remote_server_name/" \
+      -e "s/<SERVER2>/$remote_server_fqdn/" \
+      -e "s/<SERVER2_SUBNET>/$remote_server_subnet 255.255.255.0/" \
+      -e "s/<\(PORT1\|PORT2\)>.*/$((11000 + p2p_pair_id))/" \
+    _templates/server$server_num.conf \
+    > servers/server_${p2p_pair_id}_$server_num.conf
+  ## > servers/server_${p2p_pair_id}_$server_num/server$server_num.conf
+done
+
+echo Creating config file symlinks
+ln -s server_${p2p_pair_id}_1.conf servers/${local_server_name}_${p2p_pair_id}.conf
+ln -s server_${p2p_pair_id}_2.conf servers/${remote_server_name}_${p2p_pair_id}.conf
+echo
+
+# generate cert(s) -- keys/xyz.* and keys/ca.crt
+# (one per server, re-used across multipe pairs; shared CA)
+echo If necessary, creating certificate for $local_server_name
+make cert SERVER_ID=$local_server_name  CA_ARGS=-batch
+echo
+echo If necessary, creating certificate for $remote_server_name
+make cert SERVER_ID=$remote_server_name CA_ARGS=-batch
+
+
+# == Cleanup ==
+save_caches

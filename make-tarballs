@@ -1,0 +1,9 @@
+#! /bin/sh
+# make-tarballs (Bourne shell script) -- makes tarballs containing keys and config
+# this is done for all servers based on cert names found in keys/
+
+# generate tarball for each server
+for cert_file in $(cd keys ; ls *.crt | grep -v 'ca\.crt') ; do
+  server_name=${cert_file%.crt}
+  make tarball SERVER_ID=${server_name}
+done

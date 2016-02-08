@@ -1,0 +1,9 @@
+# These are the default values for fields
+# which will be placed in the certificate.
+# Don't leave any of these fields blank.
+export KEY_ORG=""
+
+# If changing this, edit _templates/server*/server*.conf
+## export KEY_SIZE=2048
+
+## export PATH=${PATH}:/usr/share/doc/openvpn/examples/easy-rsa/1.0
