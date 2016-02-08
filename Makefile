@@ -50,7 +50,7 @@ $(KEY_DIR)/dh$(KEY_SIZE).pem:
 
 $(KEY_DIR)/$(SERVER_ID).crt: $(KEY_DIR)/$(SERVER_ID).csr $(KEY_DIR)/ca.crt $(KEY_DIR)/ca.key | $(KEY_DIR)/dh$(KEY_SIZE).pem 
 	openssl ca -config $(KEY_CONFIG) $(CA_ARGS) \
-	  -extensions server -days 3650 \
+	  -extensions usr_cert -days 3650 \
 	  -in $(KEY_DIR)/$(SERVER_ID).csr -out $(KEY_DIR)/$(SERVER_ID).crt
 
 $(KEY_DIR)/$(SERVER_ID).key $(KEY_DIR)/$(SERVER_ID).csr: $(KEY_DIR)/ca.key
