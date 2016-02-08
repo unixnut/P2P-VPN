@@ -167,7 +167,7 @@ shift       # get rid of the "--"
 
 # == sanity checking ==
 if [ -z "$KEY_ORG" ] ; then
-  echo "$self: FATAL ERROR: \$KEY_ORG not set.  Edit and source 'vars'." >&2
+  echo "$self: FATAL ERROR: \$KEY_ORG not set; edit and source 'vars'." >&2
   exit 5
 fi
 
